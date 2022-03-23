@@ -1,58 +1,128 @@
 package chess
-
 import kotlin.math.abs
 
+class Position(private var state: String) {
+    private val regex = "[ BW]".toRegex()
+
+    fun getItState(): String {
+        return state
+    }
+
+    fun setItState(value: String) {
+        state = if (value.matches(regex)) value else "-"
+    }
+}
+
+data class Player(val name: String, val color: String)
+
 fun main() {
-    val field = mutableListOf<MutableList<String>>()
+    val field = mutableListOf<MutableList<Position>>()
     var firstPlayerTurn = true
-    var move:String
+    var usersStep:String
     val regex = "[a-h][1-8][a-h][1-8]".toRegex()
 
     println("Pawns-Only Chess")
     println("First Player's name:")
-    val firstPlayer = readLine()!!
+    val firstPlayer = Player(readLine()!!, "W")
     println("Second Player's name:")
-    val secondPlayer = readLine()!!
+    val secondPlayer = Player(readLine()!!, "B")
     createField(field)
     printField(field)
 
+    var player: Player
     while (true) {
-        if (firstPlayerTurn) {
-            println("$firstPlayer's turn:")
-        } else println("$secondPlayer's turn:")
-        move = readLine()!!
-        if (move == "exit") {
-                println("Bye!")
-                return
+
+        player = if (firstPlayerTurn) firstPlayer else secondPlayer
+        println("${player.name}'s turn:")
+        usersStep = readLine()!!
+
+        if (usersStep == "exit") {
+            println("Bye!")
+            return
         } else {
-            if (move.matches(regex)) {
-                firstPlayerTurn = !firstPlayerTurn
+            if (usersStep.matches(regex)) {
+                val letters = "abcdefgh"
+                val step = listOf(
+                    abs(usersStep[1].toString().toInt() - 8),
+                    letters.indexOf(usersStep.first()),
+                    abs(usersStep.last().toString().toInt() - 8),
+                    letters.indexOf(usersStep[2]))
+
+
+                val from = checkFrom(player, step, field, usersStep)
+                val to = checkTo(player, step, field)
+
+                if ( from && to) {
+
+                    field[step[2]][step[3]].setItState(player.color)
+                    field[step[0]][step[1]].setItState(" ")
+                    printField(field)
+                    firstPlayerTurn = !firstPlayerTurn
+
+                } else if (from && !to) println("Invalid Input")
             } else println("Invalid Input")
         }
     }
 }
 
-
-fun createField(field: MutableList<MutableList<String>>) {
-    val gaps = MutableList(8) { " " }
-    field.add(gaps)
-    field.add(MutableList(8) { "B" })
+fun createField(field: MutableList<MutableList<Position>>) {
+    field.add(MutableList(8) { Position(" ") })
+    field.add(MutableList(8) { Position("B") })
     for (i in 0..3) {
-        field.add(gaps)
+        field.add(MutableList(8) { Position(" ") })
     }
-    field.add(MutableList(8) { "W" })
-    field.add(gaps)
+    field.add(MutableList(8) { Position("W") })
+    field.add(MutableList(8) { Position(" ") })
 }
 
-fun printField(field: MutableList<MutableList<String>>) {
+fun printField(field: MutableList<MutableList<Position>>) {
     val line = "  " + "+---".repeat(8) + "+"
     val labels = ('a'..'h').toMutableList()
+
     for (i in field.indices) {
+        val currentLine = mutableListOf<String>()
         println(line)
+        field[i].forEach { currentLine.add(it.getItState()) }
+
         println(
-            field[i].joinToString(prefix = "${abs(i - 8)} | ", separator = " | ", postfix = " |")
+            currentLine.joinToString(prefix = "${abs(i - 8)} | ", separator = " | ", postfix = " |")
         )
     }
     println(line)
     println(labels.joinToString(prefix = "    ", separator = "   "))
+}
+
+fun checkFrom(player: Player,
+              step: List<Int>,
+              field: MutableList<MutableList<Position>>,
+              usersStep: String): Boolean {
+
+    return when (field[step[0]][step[1]].getItState()) {
+        player.color -> true
+        else -> {
+            println(
+                if (player.color == "W") {
+                    "No white pawn at ${usersStep.dropLast(2)}"
+                } else "No black pawn at ${usersStep.dropLast(2)}"
+            )
+            false
+        }
+    }
+}
+
+fun checkTo(player: Player,
+            step: List<Int>,
+            field: MutableList<MutableList<Position>>): Boolean {
+
+    val fieldState = field[step[2]][step[3]].getItState()
+    if (step[1] == step[3] && fieldState == " ") {
+        val stepsAmount = step[0] - step[2]
+        if (player.color == "B" && stepsAmount in -2..-1) {
+            return !(step[0] != 1 && stepsAmount == -2)
+        }
+        if (player.color == "W" && stepsAmount in 1..2) {
+            return !(step[0] != 6 && stepsAmount == 2)
+        }
+    }
+    return false
 }
