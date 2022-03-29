@@ -20,6 +20,7 @@ fun main() {
     var firstPlayerTurn = true
     var usersStep:String
     val regex = "[a-h][1-8][a-h][1-8]".toRegex()
+    val enPassant = mutableListOf<Int>()
 
     println("Pawns-Only Chess")
     println("First Player's name:")
@@ -50,13 +51,16 @@ fun main() {
 
 
                 val from = checkFrom(player, step, field, usersStep)
-                val to = checkTo(player, step, field)
+                val to = checkTo(player, step, field, enPassant)
 
                 if ( from && to) {
+                    val prevEnPassant = mutableListOf<Int>()
+                    prevEnPassant.addAll(enPassant)
 
-                    field[step[2]][step[3]].setItState(player.color)
-                    field[step[0]][step[1]].setItState(" ")
-                    printField(field)
+                    enPassant.clear()
+                    checkEnPassant(player, step, field, enPassant)
+                    makeStep(player, step, field, prevEnPassant)
+
                     firstPlayerTurn = !firstPlayerTurn
 
                 } else if (from && !to) println("Invalid Input")
@@ -112,11 +116,13 @@ fun checkFrom(player: Player,
 
 fun checkTo(player: Player,
             step: List<Int>,
-            field: MutableList<MutableList<Position>>): Boolean {
+            field: MutableList<MutableList<Position>>,
+            enPassant: MutableList<Int>): Boolean {
 
     val fieldState = field[step[2]][step[3]].getItState()
+    val stepsAmount = step[0] - step[2]
+
     if (step[1] == step[3] && fieldState == " ") {
-        val stepsAmount = step[0] - step[2]
         if (player.color == "B" && stepsAmount in -2..-1) {
             return !(step[0] != 1 && stepsAmount == -2)
         }
@@ -124,5 +130,69 @@ fun checkTo(player: Player,
             return !(step[0] != 6 && stepsAmount == 2)
         }
     }
+
+    if ((step[1] == step[3] - 1 || step[1] == step[3] + 1)
+        && fieldState != " ") {
+
+        return ((stepsAmount == 1 && fieldState == "B") ||
+                (stepsAmount == -1 && fieldState == "W"))
+    }
+
+    try {
+        if (step[2] == enPassant[0] && step[3] == enPassant[1]) return true
+    } catch (e: IndexOutOfBoundsException) {
+    }
+
     return false
+}
+
+fun checkEnPassant (player: Player,
+                    step: List<Int>,
+                    field: MutableList<MutableList<Position>>,
+                    enPassant: MutableList<Int>) {
+
+    val stepsAmount = step[0] - step[2]
+
+    if (stepsAmount == 2 && player.color == "W") {
+        try {
+            if (field[step[2]][step[3] - 1].getItState() == "B" ||
+                field[step[2]][step[3] + 1].getItState() == "B") {
+
+                enPassant.add(step[2] + 1)
+                enPassant.add(step[3])
+                enPassant.add(step[2])
+                enPassant.add(step[3])
+            }
+        } catch (e: IndexOutOfBoundsException) {
+        }
+    }
+
+    if (stepsAmount == -2 && player.color == "B") {
+
+        try {
+            if (field[step[2]][step[3] + 1].getItState() == "W" ||
+                field[step[2]][step[3] - 1].getItState() == "W") {
+
+                enPassant.add(step[2] - 1)
+                enPassant.add(step[3])
+                enPassant.add(step[2])
+                enPassant.add(step[3])
+            }
+        } catch (e: IndexOutOfBoundsException) {
+        }
+    }
+}
+
+fun makeStep (player: Player,
+              step: List<Int>,
+              field: MutableList<MutableList<Position>>,
+              enPassant: MutableList<Int>) {
+
+    if (enPassant.size == 4 && step[1] != step[3]) {
+        field[enPassant[2]][enPassant[3]].setItState(" ")
+    }
+    field[step[2]][step[3]].setItState(player.color)
+    field[step[0]][step[1]].setItState(" ")
+    printField(field)
+
 }
