@@ -13,7 +13,10 @@ class Position(private var state: String) {
     }
 }
 
-data class Player(val name: String, val color: String)
+data class Player(val name: String,
+                  val color: String,
+                  var pawnsAmount: Int,
+                  var stalemate: Boolean)
 
 fun main() {
     val field = mutableListOf<MutableList<Position>>()
@@ -24,9 +27,9 @@ fun main() {
 
     println("Pawns-Only Chess")
     println("First Player's name:")
-    val firstPlayer = Player(readLine()!!, "W")
+    val firstPlayer = Player(readLine()!!, "W", 8, false)
     println("Second Player's name:")
-    val secondPlayer = Player(readLine()!!, "B")
+    val secondPlayer = Player(readLine()!!, "B", 8, false)
     createField(field)
     printField(field)
 
@@ -49,7 +52,6 @@ fun main() {
                     abs(usersStep.last().toString().toInt() - 8),
                     letters.indexOf(usersStep[2]))
 
-
                 val from = checkFrom(player, step, field, usersStep)
                 val to = checkTo(player, step, field, enPassant)
 
@@ -60,6 +62,18 @@ fun main() {
                     enPassant.clear()
                     checkEnPassant(player, step, field, enPassant)
                     makeStep(player, step, field, prevEnPassant)
+
+                    if (checkWin(player, field)) {
+                        println("Bye!")
+                        return
+                    }
+
+                    val nextPlayer = if (!firstPlayerTurn) firstPlayer else secondPlayer
+
+                    if (checkStalemate(nextPlayer, field, enPassant)) {
+                        println("Bye!")
+                        return
+                    }
 
                     firstPlayerTurn = !firstPlayerTurn
 
@@ -79,6 +93,7 @@ fun createField(field: MutableList<MutableList<Position>>) {
     field.add(MutableList(8) { Position(" ") })
 }
 
+
 fun printField(field: MutableList<MutableList<Position>>) {
     val line = "  " + "+---".repeat(8) + "+"
     val labels = ('a'..'h').toMutableList()
@@ -95,6 +110,7 @@ fun printField(field: MutableList<MutableList<Position>>) {
     println(line)
     println(labels.joinToString(prefix = "    ", separator = "   "))
 }
+
 
 fun checkFrom(player: Player,
               step: List<Int>,
@@ -113,6 +129,7 @@ fun checkFrom(player: Player,
         }
     }
 }
+
 
 fun checkTo(player: Player,
             step: List<Int>,
@@ -146,10 +163,11 @@ fun checkTo(player: Player,
     return false
 }
 
-fun checkEnPassant (player: Player,
-                    step: List<Int>,
-                    field: MutableList<MutableList<Position>>,
-                    enPassant: MutableList<Int>) {
+// Checking for "enPassnat". enPassant<empty cell><destination>
+fun checkEnPassant(player: Player,
+                   step: List<Int>,
+                   field: MutableList<MutableList<Position>>,
+                   enPassant: MutableList<Int>) {
 
     val stepsAmount = step[0] - step[2]
 
@@ -183,10 +201,11 @@ fun checkEnPassant (player: Player,
     }
 }
 
-fun makeStep (player: Player,
-              step: List<Int>,
-              field: MutableList<MutableList<Position>>,
-              enPassant: MutableList<Int>) {
+
+fun makeStep(player: Player,
+             step: List<Int>,
+             field: MutableList<MutableList<Position>>,
+             enPassant: MutableList<Int>) {
 
     if (enPassant.size == 4 && step[1] != step[3]) {
         field[enPassant[2]][enPassant[3]].setItState(" ")
@@ -195,4 +214,142 @@ fun makeStep (player: Player,
     field[step[0]][step[1]].setItState(" ")
     printField(field)
 
+}
+
+
+fun checkWin(player: Player,
+             field: MutableList<MutableList<Position>>): Boolean {
+
+    var amountOfOpposite = 0
+
+    if (player.color == "W") {
+
+        for (i in field.indices) {
+            amountOfOpposite += field[i].count { it.getItState() == "B"}
+        }
+        if (amountOfOpposite == 0) {
+            println("White Wins!")
+            return true
+        }
+
+        for (i in field[0].indices) {
+            if (field[0][i].getItState() == "W") {
+                println("White Wins!")
+                return true
+            }
+        }
+    }
+
+    if (player.color == "B") {
+
+        amountOfOpposite = 0
+
+        for (i in field.indices) {
+            amountOfOpposite += field[i].count { it.getItState() == "W"}
+        }
+        if (amountOfOpposite == 0) {
+            println("Black Wins!")
+            return true
+        }
+
+        for (i in field[7].indices) {
+            if (field[7][i].getItState() == "B") {
+                println("Black Wins!")
+                return true
+            }
+        }
+    }
+
+    return false
+}
+
+
+fun checkStalemate(player: Player,
+                   field: MutableList<MutableList<Position>>,
+                   enPassant: MutableList<Int>): Boolean {
+
+    var noValidMovieCounter = 0
+    var playerPawnsCounter = 0
+    var toLeft = false
+    var toRight = false
+
+    if (player.color == "W") {
+        for (i in field.indices) {
+
+            // Counting pawns that hasn't any valid movie
+            for (j in field[i].indices) {
+
+                if (field[i][j].getItState() == "W") {
+                    playerPawnsCounter++
+
+                    try {
+                        if (field[i - 1][j - 1].getItState() == "B" ||
+                            i - 1 == enPassant[0] && j - 1 == enPassant[1]) {
+                            toLeft = true
+                        }
+                    } catch (e: IndexOutOfBoundsException) {
+                    }
+
+                    try {
+                        if (field[i - 1][j + 1].getItState() == "B" ||
+                            i - 1 == enPassant[0] && j + 1 == enPassant[1]) toRight = true
+                    } catch (e: IndexOutOfBoundsException) {
+                    }
+
+                    if (field[i - 1][j].getItState() != " " &&
+                        !toLeft && !toRight
+                    ) {
+
+                        noValidMovieCounter++
+                    }
+                }
+            }
+        }
+
+        if (playerPawnsCounter == noValidMovieCounter) {
+            println("Stalemate!")
+            return true
+        }
+    }
+
+    if (player.color == "B") {
+        for (i in field.indices) {
+
+            // Counting pawns that hasn't any valid movie
+            for (j in field[i].indices) {
+
+                if (field[i][j].getItState() == "B") {
+                    playerPawnsCounter++
+
+                    try {
+                        if (field[i + 1][j - 1].getItState() == "W" ||
+                            i + 1 == enPassant[0] && j - 1 == enPassant[1]) {
+                            toLeft = true
+                        }
+                    } catch (e: IndexOutOfBoundsException) {
+                    }
+
+                    try {
+                        if (field[i + 1][j + 1].getItState() == "W" ||
+                            i + 1 == enPassant[0] && j + 1 == enPassant[1]) toRight = true
+                    } catch (e: IndexOutOfBoundsException) {
+                    }
+
+                    if (field[i + 1][j].getItState() != " " &&
+                        !toLeft && !toRight
+                    ) {
+
+                        noValidMovieCounter++
+                    }
+                }
+            }
+        }
+
+        if (playerPawnsCounter == noValidMovieCounter) {
+            println("Stalemate!")
+            return true
+        }
+    }
+
+    return false
 }
